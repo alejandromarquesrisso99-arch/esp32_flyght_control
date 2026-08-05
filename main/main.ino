@@ -133,13 +133,14 @@ void loop() {
     float finalPitch = kalmanPitch.getAngle(accelPitch, gyroY, dt);
 
     // 6. Preparar salida para el "Serial Plotter"
-    Serial.print("RawPitch:");
-    Serial.print(accelPitch);
-    Serial.print("\tKalmanPitch:");
+    //Serial.print("RawPitch:");
+    //Serial.print(accelPitch);
+    //Serial.print("\tKalmanPitch:");
     Serial.print(finalPitch);
-    Serial.print("\tRawRoll:");
-    Serial.print(accelRoll);
-    Serial.print("\tKalmanRoll:");
+   // Serial.print("\tRawRoll:");
+    //Serial.print(accelRoll);
+    //Serial.print("\tKalmanRoll:");
+    Serial.print(",");
     Serial.println(finalRoll);
 
     delay(10); // Loop estabilizado a ~100Hz

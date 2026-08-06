@@ -9,3 +9,5 @@ To Do:
   - Cambio de color respecto temperatura en simulacion 3D
   - Añadir parámetros HUD en simulacion (Angulos y temp)
   - Añadir conectividad WiFi
+  - Empaquetar variables en estructura binaria para comunicacion (minimizar latencia transmision)
+  - 

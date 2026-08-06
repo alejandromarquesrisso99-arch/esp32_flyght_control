@@ -10,4 +10,4 @@ To Do:
   - Añadir parámetros HUD en simulacion (Angulos y temp)
   - Añadir conectividad WiFi
   - Empaquetar variables en estructura binaria para comunicacion (minimizar latencia transmision)
-  - 
+  - Medir tiempo medio de ejecucion de libreria Kalman1D

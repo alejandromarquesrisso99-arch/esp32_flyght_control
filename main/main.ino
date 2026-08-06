@@ -7,7 +7,6 @@ const uint8_t REG_PWR_MGMT_1 = 0x6B;
 const uint8_t REG_GYRO_CONFIG = 0x1B;
 const uint8_t REG_ACCEL_CONFIG = 0x1C;
 const uint8_t REG_ACCEL_XOUT_H = 0x3B;
-//const float RAD_TO_DEG = 180.0 / PI;
 
 // Variables globales modificables por la función de perfiles
 float ACCEL_SCALE = 16384.0;
@@ -146,14 +145,14 @@ void loop() {
   float finalPitch = kalmanPitch.getAngle(accelPitch, gyroY, dt);
 
   // 6. Preparar salida para el "Serial Plotter"
-  //Serial.print("RawPitch:");
-  //Serial.print(accelPitch);
-  //Serial.print("\tKalmanPitch:");
+  Serial.print("RawPitch:");
+  Serial.print(accelPitch);
+  Serial.print("\tKalmanPitch:");
   Serial.print(finalPitch);
-  // Serial.print("\tRawRoll:");
-  Serial.print(",");
-  //Serial.print(accelRoll);
-  //Serial.print("\tKalmanRoll:");
+  Serial.print("\tRawRoll:");
+  //Serial.print(",");
+  Serial.print(accelRoll);
+  Serial.print("\tKalmanRoll:");
   Serial.println(finalRoll);
 
   delay(10);  // Loop estabilizado a ~100Hz

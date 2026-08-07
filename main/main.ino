@@ -119,8 +119,9 @@ void loop() {
   int16_t rawAccelX = (Wire.read() << 8) | Wire.read();
   int16_t rawAccelY = (Wire.read() << 8) | Wire.read();
   int16_t rawAccelZ = (Wire.read() << 8) | Wire.read();
-  Wire.read();
-  Wire.read();  // Omitir Temp
+
+  int16_t rawTemp = (Wire.read() << 8) | Wire.read();
+
   int16_t rawGyroX = (Wire.read() << 8) | Wire.read();
   int16_t rawGyroY = (Wire.read() << 8) | Wire.read();
   int16_t rawGyroZ = (Wire.read() << 8) | Wire.read();
@@ -135,7 +136,7 @@ void loop() {
   // 3. Ecuación del Acelerómetro (Gravedad vectorizada)
   float accelRoll = atan2(accY, accZ) * RAD_TO_DEG;
   float accelPitch = atan2(-accX, sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
-
+  float tempC = (rawTemp / 340.0) + 36.53;
   // 4. Calcular el tiempo exacto transcurrido (dt)
   float dt = (float)(micros() - timer) / 1000000.0;
   timer = micros();
@@ -145,15 +146,23 @@ void loop() {
   float finalPitch = kalmanPitch.getAngle(accelPitch, gyroY, dt);
 
   // 6. Preparar salida para el "Serial Plotter"
-  Serial.print("RawPitch:");
-  Serial.print(accelPitch);
-  Serial.print("\tKalmanPitch:");
+  //Serial.print("RawPitch:");
+  //Serial.print(accelPitch);
+  //Serial.print("\tKalmanPitch:");
   Serial.print(finalPitch);
-  Serial.print("\tRawRoll:");
-  //Serial.print(",");
-  Serial.print(accelRoll);
-  Serial.print("\tKalmanRoll:");
-  Serial.println(finalRoll);
+  //Serial.print("\tRawRoll:");
+  Serial.print(",");
+  //Serial.print(accelRoll);
+  //Serial.print("\tKalmanRoll:");
+  Serial.print(finalRoll);
+  Serial.print(",");
+  Serial.print(rawAccelX);
+  Serial.print(",");
+  Serial.print(rawAccelY);
+  Serial.print(",");
+  Serial.print(rawAccelZ);
+  Serial.print(",");
+  Serial.println(tempC);
 
   delay(10);  // Loop estabilizado a ~100Hz
 }

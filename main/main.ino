@@ -16,7 +16,14 @@ float GYRO_SCALE = 131.0;
 Kalman1D kalmanRoll;
 Kalman1D kalmanPitch;
 
-unsigned long timer;
+unsigned long lastMicros = 0;
+hw_timer_t *sampleTimer = NULL;
+volatile bool timerFlag = false;
+
+
+void IRAM_ATTR timerISR() {
+  timerFlag = true;
+}
 
 // --- FUNCIÓN MAESTRA DE PERFILES (Hardware + Software) ---
 bool setSystemProfile(uint8_t perfil) {
@@ -33,7 +40,6 @@ bool setSystemProfile(uint8_t perfil) {
       kalmanPitch.setRmeasure(0.005f);  // Confiamos mucho en Accel
       kalmanRoll.setQangle(0.001f);
       kalmanPitch.setQangle(0.001f);
-      Serial.println("\n[SISTEMA] Perfil 0: Ultra Preciso (Anclado a gravedad).");
       break;
 
     case 1:                // [Perfil 1] Vehículo Terrestre (Movimiento Moderado)
@@ -45,7 +51,6 @@ bool setSystemProfile(uint8_t perfil) {
       kalmanPitch.setRmeasure(0.03f);
       kalmanRoll.setQangle(0.001f);
       kalmanPitch.setQangle(0.001f);
-      Serial.println("\n[SISTEMA] Perfil 1: Moderado (Balance estándar).");
       break;
 
     case 2:                // [Perfil 2] Dron Estándar (Dinámico)
@@ -57,7 +62,6 @@ bool setSystemProfile(uint8_t perfil) {
       kalmanPitch.setRmeasure(0.06f);
       kalmanRoll.setQangle(0.0005f);
       kalmanPitch.setQangle(0.0005f);
-      Serial.println("\n[SISTEMA] Perfil 2: Dinámico (Alta movilidad).");
       break;
 
     case 3:                // [Perfil 3] Misil / Caza (Acrobático y Violento)
@@ -69,7 +73,6 @@ bool setSystemProfile(uint8_t perfil) {
       kalmanPitch.setRmeasure(0.1f);  // Confiamos poco en Accel por ruido G
       kalmanRoll.setQangle(0.0001f);
       kalmanPitch.setQangle(0.0001f);  // Confiamos mucho en el Gyro
-      Serial.println("\n[SISTEMA] Perfil 3: Acrobático (Filtro priorizando inercial).");
       break;
 
     default: return false;
@@ -91,78 +94,73 @@ bool setSystemProfile(uint8_t perfil) {
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial) { yield(); }
-
   Wire.begin(21, 22);
-  Wire.setClock(400000);  // Forzamos I2C a alta velocidad (400kHz) para control rápido
 
-  // Despertar el MPU6050
   Wire.beginTransmission(MPU6050_ADDR);
   Wire.write(REG_PWR_MGMT_1);
   Wire.write(0x00);
   Wire.endTransmission();
 
-  // Iniciamos la nave en Perfil 0 (Cámbialo aquí para experimentar)
-  setSystemProfile(3);
+  setSystemProfile(1);
 
-  timer = micros();
+  sampleTimer = timerBegin(1000000);
+  timerAttachInterrupt(sampleTimer, &timerISR);
+  timerAlarm(sampleTimer, 10000, true, 0);
+
+  lastMicros = micros();
 }
 
 void loop() {
-  // 1. Lectura en bloque
-  Wire.beginTransmission(MPU6050_ADDR);
-  Wire.write(REG_ACCEL_XOUT_H);
-  Wire.endTransmission(false);
 
-  if (Wire.requestFrom(MPU6050_ADDR, (uint8_t)14) != 14) return;
+  if (timerFlag) {
+    timerFlag = false;
 
-  int16_t rawAccelX = (Wire.read() << 8) | Wire.read();
-  int16_t rawAccelY = (Wire.read() << 8) | Wire.read();
-  int16_t rawAccelZ = (Wire.read() << 8) | Wire.read();
+    unsigned long currentMicros = micros();
+    float dt = (float)(currentMicros - lastMicros) / 1000000.0;
+    lastMicros = currentMicros;
 
-  int16_t rawTemp = (Wire.read() << 8) | Wire.read();
+    if (dt <= 0) dt = 0.01;
 
-  int16_t rawGyroX = (Wire.read() << 8) | Wire.read();
-  int16_t rawGyroY = (Wire.read() << 8) | Wire.read();
-  int16_t rawGyroZ = (Wire.read() << 8) | Wire.read();
+    Wire.beginTransmission(MPU6050_ADDR);
+    Wire.write(REG_ACCEL_XOUT_H);
+    Wire.endTransmission(false);
+    Wire.requestFrom(MPU6050_ADDR, 14, true);
 
-  // 2. Aplicar escala física
-  float accX = (float)rawAccelX / ACCEL_SCALE;
-  float accY = (float)rawAccelY / ACCEL_SCALE;
-  float accZ = (float)rawAccelZ / ACCEL_SCALE;
-  float gyroX = (float)rawGyroX / GYRO_SCALE;
-  float gyroY = (float)rawGyroY / GYRO_SCALE;
+    if (Wire.available() >= 14) {
+      int16_t rawAccelX = (Wire.read() << 8) | Wire.read();
+      int16_t rawAccelY = (Wire.read() << 8) | Wire.read();
+      int16_t rawAccelZ = (Wire.read() << 8) | Wire.read();
+      int16_t rawTemp = (Wire.read() << 8) | Wire.read();
+      int16_t rawGyroX = (Wire.read() << 8) | Wire.read();
+      int16_t rawGyroY = (Wire.read() << 8) | Wire.read();
+      int16_t rawGyroZ = (Wire.read() << 8) | Wire.read();
 
-  // 3. Ecuación del Acelerómetro (Gravedad vectorizada)
-  float accelRoll = atan2(accY, accZ) * RAD_TO_DEG;
-  float accelPitch = atan2(-accX, sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
-  float tempC = (rawTemp / 340.0) + 36.53;
-  // 4. Calcular el tiempo exacto transcurrido (dt)
-  float dt = (float)(micros() - timer) / 1000000.0;
-  timer = micros();
+      float accelX = (float)rawAccelX / ACCEL_SCALE;
+      float accelY = (float)rawAccelY / ACCEL_SCALE;
+      float accelZ = (float)rawAccelZ / ACCEL_SCALE;
 
-  // 5. Motor de Fusión de Sensores (Kalman Filter)
-  float finalRoll = kalmanRoll.getAngle(accelRoll, gyroX, dt);
-  float finalPitch = kalmanPitch.getAngle(accelPitch, gyroY, dt);
+      float tempC = ((float)rawTemp / 340.0) + 36.53;
 
-  // 6. Preparar salida para el "Serial Plotter"
-  //Serial.print("RawPitch:");
-  //Serial.print(accelPitch);
-  //Serial.print("\tKalmanPitch:");
-  Serial.print(finalPitch);
-  //Serial.print("\tRawRoll:");
-  Serial.print(",");
-  //Serial.print(accelRoll);
-  //Serial.print("\tKalmanRoll:");
-  Serial.print(finalRoll);
-  Serial.print(",");
-  Serial.print(rawAccelX);
-  Serial.print(",");
-  Serial.print(rawAccelY);
-  Serial.print(",");
-  Serial.print(rawAccelZ);
-  Serial.print(",");
-  Serial.println(tempC);
+      float gyroX = (float)rawGyroX / GYRO_SCALE;
+      float gyroY = (float)rawGyroY / GYRO_SCALE;
 
-  delay(10);  // Loop estabilizado a ~100Hz
+      float rollAcc = atan2(accelY, accelZ) * RAD_TO_DEG;
+      float pitchAcc = atan2(-accelX, sqrt(accelY * accelY + accelZ * accelZ)) * RAD_TO_DEG;
+
+      float finalRoll = kalmanRoll.getAngle(rollAcc, gyroX, dt);
+      float finalPitch = kalmanPitch.getAngle(pitchAcc, gyroY, dt);
+
+      Serial.print(finalPitch);
+      Serial.print(",");
+      Serial.print(finalRoll);
+      Serial.print(",");
+      Serial.print(accelX * 9.81);
+      Serial.print(",");
+      Serial.print(accelY * 9.81);
+      Serial.print(",");
+      Serial.print(accelZ * 9.81);
+      Serial.print(",");
+      Serial.println(tempC);
+    }
+  }
 }

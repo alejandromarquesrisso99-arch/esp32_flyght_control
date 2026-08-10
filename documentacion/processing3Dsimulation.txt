@@ -15,8 +15,7 @@ float accelZ = 0;
 float temp = 0;
 
 // Configuración de Partículas (Polvo)
-int NUM_DUST = 1000;
-DustParticle[] dust = new DustParticle[NUM_DUST];
+
 
 void setup() {
   size(1000, 700, P3D);
@@ -26,7 +25,8 @@ void setup() {
   myPort = new Serial(this, portName, 115200);
   myPort.bufferUntil('\n');
 
-
+ 
+}
 
 void draw() {
   background(15, 18, 25); // Fondo oscuro tipo espacio/laboratorio
